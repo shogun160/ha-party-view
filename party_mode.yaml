@@ -1,0 +1,31 @@
+# ============================================================
+# Party Mode Automation
+# ============================================================
+# Runs the QR script when Music Assistant party mode is
+# activated or deactivated.
+#
+# Place this file in /config/automations/ or paste the
+# content into your automations.yaml.
+#
+# Adjust:
+#   media_player.kuche_2  → your Music Assistant player
+# ============================================================
+
+alias: "Party Mode: QR Code aktualisieren"
+description: >
+  Generiert oder löscht den Party Mode QR Code wenn Music Assistant
+  Party Mode aktiviert oder deaktiviert wird.
+
+trigger:
+  # Trigger when party mode attribute changes
+  - platform: state
+    entity_id: media_player.kuche_2   # ← change this
+    attribute: active_queue
+
+condition: []
+
+action:
+  - service: shell_command.party_qr
+    data: {}
+
+mode: single

@@ -1,0 +1,447 @@
+# ============================================================
+# Home Assistant Party View
+# ============================================================
+# Paste this as a Panel View in your HA dashboard (raw config editor).
+#
+# Replace these values:
+#   media_player.your_player     → your Music Assistant media player entity
+#   /your-dashboard/your-view     → navigation path for the back button
+#   /local/your-floorplan-image.png → your floorplan image path
+#
+# Required HACS cards:
+#   custom:button-card, custom:layout-card, custom:my-slider-v2, custom:gap-card
+# ============================================================
+
+title: Party
+path: party
+icon: mdi:party-popper
+type: panel
+subview: false
+theme: tablet
+badges: []
+cards:
+  - type: vertical-stack
+    cards:
+
+      # ── Dynamic blurred background ──────────────────────────────
+      - type: custom:button-card
+        entity: media_player.your_player
+        show_icon: false
+        show_name: false
+        show_state: false
+        show_label: false
+        tap_action:
+          action: none
+        styles:
+          card:
+            - position: fixed
+            - inset: 0
+            - z-index: 0
+            - background-image: |
+                [[[
+                  const pic = hass.states['media_player.your_player']?.attributes?.entity_picture;
+                  return pic ? 'url("' + pic + '")' : 'url("/local/background_sidebar.png")';
+                ]]]
+            - background-size: cover
+            - background-position: center
+            - background-repeat: no-repeat
+            - filter: blur(40px) brightness(0.5)
+            - transform: scale(1.15)
+            - overflow: hidden
+            - pointer-events: none
+
+      # ── Main grid layout ─────────────────────────────────────────
+      - type: custom:layout-card
+        layout_type: custom:grid-layout
+        layout:
+          grid-template-columns: 37% 63%
+          grid-template-rows: 465px 100px 60px
+          height: calc(100vh - 180px)
+          grid-template-areas: '"left queue" "left controls" "left volume"'
+          padding: 90px 90px 90px 50px
+          gap: 16px
+        cards:
+
+          # ── Left column: QR code + floorplan ─────────────────────
+          - type: vertical-stack
+            view_layout:
+              grid-area: left
+            cards:
+
+              # QR Code (falls back to placeholder when party mode off)
+              - type: custom:button-card
+                show_icon: false
+                show_name: false
+                show_state: false
+                show_label: true
+                tap_action:
+                  action: none
+                styles:
+                  card:
+                    - background: none
+                    - box-shadow: none
+                    - border: none
+                    - padding: 0
+                    - height: 50%
+                  label:
+                    - width: 100%
+                    - height: 100%
+                    - display: flex
+                    - align-items: center
+                    - justify-content: center
+                label: |
+                  [[[
+                    const qr = '/local/party_qr.png';
+                    const placeholder = '/local/spotify_device_pics/player_off.png';
+                    const bust = Date.now();
+                    return '<img src="' + qr + '?t=' + bust + '" '
+                      + 'style="width:90%;max-width:280px;height:auto;display:block;" '
+                      + 'onerror="this.onerror=null;this.src=\'' + placeholder + '\';this.style.opacity=\'0.5\';" />';
+                  ]]]
+
+              # Floorplan thumbnail (tap to navigate back)
+              - type: custom:button-card
+                show_icon: false
+                show_name: false
+                show_state: false
+                show_label: true
+                tap_action:
+                  action: navigate
+                  navigation_path: /your-dashboard/your-view   # ← change this
+                styles:
+                  card:
+                    - background: none
+                    - box-shadow: none
+                    - border: none
+                    - padding: 0
+                    - height: 50%
+                  label:
+                    - width: 100%
+                    - height: 100%
+                    - display: flex
+                    - align-items: center
+                    - justify-content: center
+                label: |
+                  [[[
+                    return '<div style="width:100%;padding:25px;box-sizing:border-box;">'
+                      + '<div style="border-radius:16px;overflow:hidden;'
+                      + 'backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);'
+                      + 'background:rgba(0,0,0,0.15);'
+                      + 'mask-image:linear-gradient(to right, transparent 0%, black 11%, black 89%, transparent 100%),linear-gradient(to bottom, transparent 0%, black 11%, black 90%, transparent 100%);'
+                      + 'mask-composite:intersect;'
+                      + '-webkit-mask-image:linear-gradient(to right, transparent 0%, black 11%, black 89%, transparent 100%),linear-gradient(to bottom, transparent 0%, black 11%, black 90%, transparent 100%);'
+                      + '-webkit-mask-composite:source-in;">'
+                      + '<img src="/local/your-floorplan-image.png" style="width:100%;height:auto;display:block;" />'  # ← change this
+                      + '</div></div>';
+                  ]]]
+
+          # ── Queue ─────────────────────────────────────────────────
+          - type: custom:button-card
+            view_layout:
+              grid-area: queue
+            show_icon: false
+            show_name: false
+            show_state: false
+            show_label: true
+            tap_action:
+              action: none
+            styles:
+              card:
+                - background: none
+                - box-shadow: none
+                - border: none
+                - padding: 0
+                - height: 100%
+                - overflow: hidden
+              label:
+                - width: 100%
+                - height: 100%
+                - display: block
+            label: |
+              [[[
+                const playerEntity = 'media_player.your_player';   // ← change this
+                const currentTitle = hass.states[playerEntity]?.attributes?.media_title || '';
+                const currentArtist = hass.states[playerEntity]?.attributes?.media_artist || '';
+                const dur = hass.states[playerEntity]?.attributes?.media_duration || 0;
+                const pos = hass.states[playerEntity]?.attributes?.media_position || 0;
+                const pct = dur > 0 ? Math.min((pos / dur) * 100, 100) : 0;
+                const trackKey = currentTitle + currentArtist;
+
+                if (window._partyQueueKey !== trackKey) {
+                  window._partyQueueKey = trackKey;
+                  window._partyQueueFetching = false;
+                }
+
+                if (!window._partyQueueFetching) {
+                  window._partyQueueFetching = true;
+                  setTimeout(() => {
+                    hass.callService('mass_queue', 'get_queue_items', {
+                      entity: playerEntity, limit_before: 2, limit_after: 4
+                    }, {}, true, true).then(r => {
+                      const items = r?.response?.[playerEntity] || [];
+                      if (items.length) window._partyQueueItems = items;
+                      window._partyQueueFetching = false;
+                    }).catch(() => { window._partyQueueFetching = false; });
+                  }, 2000);
+                }
+
+                const items = window._partyQueueItems || [];
+                const idx = items.findIndex(t => t.media_title === currentTitle);
+
+                const progressBar = '<div style="height:8px;background:rgba(255,255,255,0.15);border-radius:8px;margin-top:10px;">'
+                  + '<div style="height:100%;width:' + pct + '%;background:white;border-radius:8px;"></div>'
+                  + '</div>';
+
+                const rows = items.map((item, i) => {
+                  const isCurrent = i === idx;
+                  const p = i - idx;
+                  const opacity = isCurrent ? 1 : p === -1 ? 0.5 : p === -2 ? 0.3 : p === 1 ? 0.55 : p === 2 ? 0.38 : p === 3 ? 0.22 : 0.1;
+                  const sz = isCurrent ? '82px' : p === -1 || p === 1 ? '48px' : p === -2 || p === 2 ? '36px' : p === 3 ? '28px' : '20px';
+                  const cover = item.media_image
+                    ? '<img src="' + item.media_image + '" style="width:' + sz + ';height:' + sz + ';border-radius:6px;object-fit:cover;flex-shrink:0;" />'
+                    : '<div style="width:' + sz + ';height:' + sz + ';border-radius:6px;background:rgba(255,255,255,0.08);flex-shrink:0;"></div>';
+                  const bg = isCurrent ? 'background:rgba(255,255,255,0.11);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);' : '';
+                  const pad = isCurrent ? '14px 12px' : '7px 12px';
+                  const sub = (item.media_artist || '') + (item.media_album_name ? ' \u2022 ' + item.media_album_name : '');
+                  const content = isCurrent
+                    ? '<div style="flex:1;min-width:0;overflow:hidden;text-align:left;">'
+                      + '<div style="font-size:20px;font-weight:500;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (item.media_title || '') + '</div>'
+                      + '<div style="font-size:14px;color:rgba(255,255,255,0.55);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + sub + '</div>'
+                      + progressBar + '</div>'
+                    : '<div style="flex:1;min-width:0;overflow:hidden;text-align:left;">'
+                      + '<div style="font-size:14px;font-weight:400;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (item.media_title || '') + '</div>'
+                      + '<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + sub + '</div>'
+                      + '</div>';
+                  return '<div style="display:flex;align-items:center;gap:14px;padding:' + pad + ';border-radius:10px;' + bg + 'opacity:' + opacity + ';margin-bottom:4px;">'
+                    + cover + content + '</div>';
+                }).join('');
+
+                return '<div style="width:100%;height:100%;'
+                  + 'mask-image:linear-gradient(to bottom, transparent 0%, black 12%, black 100%, transparent 100%);'
+                  + '-webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 12%, black 100%, transparent 100%);'
+                  + 'overflow:hidden;">'
+                  + (rows || '<div style="color:rgba(255,255,255,0.3);padding:20px;font-size:14px;">Queue lädt...</div>')
+                  + '</div>';
+              ]]]
+
+          # ── Player controls ───────────────────────────────────────
+          - type: custom:button-card
+            view_layout:
+              grid-area: controls
+            show_icon: false
+            show_name: false
+            show_state: false
+            show_label: false
+            tap_action:
+              action: none
+            styles:
+              card:
+                - background: none
+                - box-shadow: none
+                - border: none
+                - height: 100%
+                - overflow: visible
+                - z-index: 1
+              grid:
+                - grid-template-areas: '"gap_l prev play next fav gap_r"'
+                - grid-template-columns: 2fr 1fr 1fr 1fr 1fr 2fr
+                - align-items: center
+                - justify-items: center
+            custom_fields:
+              gap_l: ''
+              gap_r: ''
+              prev:
+                card:
+                  type: custom:button-card
+                  entity: media_player.your_player   # ← change this
+                  show_icon: true
+                  show_name: false
+                  tap_action:
+                    action: call-service
+                    service: media_player.media_previous_track
+                    service_data:
+                      entity_id: media_player.your_player   # ← change this
+                  icon: mdi:skip-previous
+                  styles:
+                    card:
+                      - background: rgba(255,255,255,0.1)
+                      - border-radius: 50%
+                      - width: 44px
+                      - height: 44px
+                      - border: none
+                      - box-shadow: none
+                    icon:
+                      - color: rgba(255,255,255,0.85)
+                      - width: 22px
+              play:
+                card:
+                  type: custom:button-card
+                  entity: media_player.your_player   # ← change this
+                  show_icon: true
+                  show_name: false
+                  icon: >
+                    [[[
+                      return hass.states['media_player.your_player']?.state === 'playing'
+                        ? 'mdi:pause' : 'mdi:play';
+                    ]]]
+                  tap_action:
+                    action: call-service
+                    service: >
+                      [[[
+                        return hass.states['media_player.your_player']?.state === 'playing'
+                          ? 'media_player.media_pause'
+                          : 'media_player.media_play';
+                      ]]]
+                    service_data:
+                      entity_id: media_player.your_player   # ← change this
+                  styles:
+                    card:
+                      - background: white
+                      - border-radius: 50%
+                      - width: 56px
+                      - height: 56px
+                      - border: none
+                      - box-shadow: none
+                    icon:
+                      - color: '#111111'
+                      - width: 26px
+              next:
+                card:
+                  type: custom:button-card
+                  entity: media_player.your_player   # ← change this
+                  show_icon: true
+                  show_name: false
+                  tap_action:
+                    action: call-service
+                    service: media_player.media_next_track
+                    service_data:
+                      entity_id: media_player.your_player   # ← change this
+                  icon: mdi:skip-next
+                  styles:
+                    card:
+                      - background: rgba(255,255,255,0.1)
+                      - border-radius: 50%
+                      - width: 44px
+                      - height: 44px
+                      - border: none
+                      - box-shadow: none
+                    icon:
+                      - color: rgba(255,255,255,0.85)
+                      - width: 22px
+              fav:
+                card:
+                  type: custom:button-card
+                  entity: button.your_favourite_button   # ← change this
+                  show_icon: true
+                  show_name: false
+                  tap_action:
+                    action: call-service
+                    service: button.press
+                    service_data:
+                      entity_id: button.your_favourite_button   # ← change this
+                  icon: mdi:heart-outline
+                  styles:
+                    card:
+                      - background: rgba(255,255,255,0.1)
+                      - border-radius: 50%
+                      - width: 44px
+                      - height: 44px
+                      - border: none
+                      - box-shadow: none
+                    icon:
+                      - color: rgba(255,255,255,0.85)
+                      - width: 22px
+
+          # ── Volume slider ─────────────────────────────────────────
+          - type: horizontal-stack
+            view_layout:
+              grid-area: volume
+            cards:
+
+              # Volume icon + percentage
+              - type: custom:button-card
+                entity: media_player.your_player   # ← change this
+                show_icon: false
+                show_name: false
+                show_state: false
+                show_label: true
+                tap_action:
+                  action: none
+                styles:
+                  card:
+                    - background: none
+                    - box-shadow: none
+                    - border: none
+                    - padding: 0
+                    - width: 90px
+                    - flex-shrink: 0
+                  label:
+                    - display: flex
+                    - align-items: center
+                    - justify-content: center
+                    - gap: 6px
+                    - width: 100%
+                    - height: 100%
+                label: |
+                  [[[
+                    const vol = Math.round((hass.states['media_player.your_player']?.attributes?.volume_level || 0) * 100);
+                    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)"><path d="M11 5L6 9H2v6h4l5 4V5z"/></svg>'
+                      + '<span style="color:rgba(255,255,255,0.6);font-size:14px;">' + vol + '%</span>';
+                  ]]]
+
+              # Slider
+              - type: custom:my-slider-v2
+                entity: media_player.your_player   # ← change this
+                attribute: volume_level
+                step: 2
+                disableScroll: true
+                allowSliding: true
+                styles:
+                  card:
+                    - height: 20px
+                    - background: none
+                    - box-shadow: none
+                    - border: none
+                    - overflow: visible
+                    - z-index: 1
+                  track:
+                    - background: rgba(255,255,255,0.2)
+                    - height: 10px
+                    - border-radius: 10px
+                    - margin-top: 5px
+                  progress:
+                    - background: rgba(255,255,255,0.85)
+                    - border-radius: 10px
+                  thumb:
+                    - width: 14px
+                    - height: 14px
+                    - background: white
+                    - border-radius: 50%
+                    - margin-top: "-2px"
+
+              # Volume high icon
+              - type: custom:button-card
+                show_icon: false
+                show_name: false
+                show_state: false
+                show_label: true
+                tap_action:
+                  action: none
+                styles:
+                  card:
+                    - background: none
+                    - box-shadow: none
+                    - border: none
+                    - padding: 0
+                    - width: 40px
+                    - flex-shrink: 0
+                  label:
+                    - display: flex
+                    - align-items: center
+                    - justify-content: center
+                    - width: 100%
+                    - height: 100%
+                label: |
+                  [[[
+                    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" stroke="rgba(255,255,255,0.85)" stroke-width="2" fill="none"/></svg>';
+                  ]]]
