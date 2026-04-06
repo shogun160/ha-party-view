@@ -1,4 +1,4 @@
-# 🎉 Home Assistant Party View
+# 🎉 Home Assistant Party View (Juke Box)
 
 !!! Progressbar ist currentlich obly changing when play/pause button is pressed. I already have al solution with a nested mini-media-player card but i doesn't render good al the time) !!!
 
