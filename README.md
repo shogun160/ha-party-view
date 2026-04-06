@@ -1,5 +1,7 @@
 # 🎉 Home Assistant Party View
 
+!!! Progressbar ist currentlich obly changing when play/pause button is pressed. I already have al solution with a nested mini-media-player card but i doesn't render good al the time) !!!
+
 A full-screen Music Assistant Party Mode dashboard for Home Assistant tablets.  
 Displays the current queue, album art as dynamic blurred background, player controls, volume slider, QR code and a floorplan thumbnail.
 
